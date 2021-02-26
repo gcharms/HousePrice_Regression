@@ -1,0 +1,96 @@
+### HousePrice data pre-processing ###
+
+setwd("C:/Users/griff/Desktop/Analytics Projects/HousePrice_Project")
+
+library(psych)
+
+realestate=read.csv("data.csv", head=TRUE)
+
+# Get missing price data into a dataframe
+
+missingprice_data <- subset(realestate, price == 0)
+
+# Find statistics regarding target variable (price)
+describe(realestate$price)
+barplot(table(realestate$price))
+
+# Review key housing market statistics of missing price data
+
+describe(missingprice_data$bedrooms)
+describe(missingprice_data$bathrooms)
+describe(missingprice_data$sqft_living)
+
+# Missing price instances have 4 bedrooms, 3 bathrooms, and 3000 sqft on average
+# Based on these findings, we can expect one of these houses be priced around 600000
+
+realestate$price[realestate$price==0] <- 600000
+
+library(ggplot2)
+ggplot2.scatterplot(data=realestate, xName='price',yName='sqft_living')
+
+# Remove outliers from dataset
+
+realestate$bedrooms[realestate$bedrooms==0] <- 6 # Houses with 0 bedrooms (2) are priced similar to 6 bedroom houses
+realestate$bedrooms[realestate$bedrooms>6] <- 6 # Any house with over 6 bedrooms may be outlier
+realestate$bathrooms[realestate$bathrooms==0] <- 3 # Houses with 0 bathrooms (2) are priced similar to 3 bathroom houses
+realestate$bathrooms[realestate$bathrooms>5] <- 5 # Any house with over 5 bathrooms is outlier
+realestate$floors[realestate$floors>3] <- 3 # Any house with over 3 floors is outlier
+realestate$sqft_living[realestate$sqft_living>6000] <- 6000 # Any house over 6000 sqft is outlier
+realestate$sqft_lot[realestate$sqft_lot>300000] <- 300000 # Any house over 300000 sqft lot is outlier
+realestate$sqft_basement[realestate$sqft_basement>2000] <- 2000 # Any house with over 2000 sqft basement is outlier
+
+# "waterfront", "condition", "view", "sqft_above" are not plagued with outliers
+
+corr.test(as.matrix(realestate[,2:11])) #statistical testing of numeric variables
+
+# Based on this, drop "condition", "sqft_lot", and "sqft_above" (linearity problems with "sqft_living") 
+# Additional variables are not continous and will be analyzed seperately
+
+# Distribution of house by basement size
+hist(realestate$sqft_basement) # For EDA
+
+# Organize basement_sqft into categorical bins
+b <- c(-Inf, .5, 999, Inf)
+names <- c("No basement", "Regular basement", "Large basement")
+newbasement <- cut(realestate$sqft_basement, breaks = b, labels = names)
+count(newbasement)
+barplot(table(newbasement))
+
+# Distribution of house by year built
+hist(realestate$yr_built) # For EDA
+
+# Organize yr_built data into categorical bins
+b <- c(-Inf, 1959, 1999, Inf)
+names <- c("Older", "Not new, not old", "Newer")
+realestate$yr_built <- cut(realestate$yr_built, breaks = b, labels = names)
+count(realestate$yr_built)
+barplot(table(realestate$yr_built))
+
+# Distribution of renovations
+hist(realestate$yr_renovated) # For EDA
+
+# Organize yr_renovated data into categorical bins
+b <- c(-Inf, 1, 1999, Inf)
+names <- c("No renovation", "Old renovation", "New renovation")
+realestate$yr_renovated <- cut(realestate$yr_renovated, breaks = b, labels = names)
+count(realestate$yr_renovated)
+barplot(table(realestate$yr_renovated))
+
+# Analyze city data by "High Income" and "Moderate Income" categories
+library(plyr)
+realestate$city <- revalue(realestate$city, c("Bellevue"="High Income", "Clyde Hill"="High Income", "Kirkland"="High Income", "Medina"="High Income", "Mercer Island"="High Income", "Redmond"="High Income", "Sammamish"="High Income"))
+realestate$city <- revalue(realestate$city, c("Algona"="Moderate Income", "Auburn"="Moderate Income", "Beaux Arts Village"="Moderate Income", "Black Diamond"="Moderate Income", "Bothell"="Moderate Income", "Burien"="Moderate Income", "Carnation"="Moderate Income", "Covington"="Moderate Income", "Des Moines"="Moderate Income", "Duvall"="Moderate Income", "Enumclaw"="Moderate Income", "Fall City"="Moderate Income", "Federal Way"="Moderate Income", "Inglewood-Finn Hill"="Moderate Income", "Issaquah"="Moderate Income", "Kenmore"="Moderate Income", "Kent"="Moderate Income", "Lake Forest Park"="Moderate Income", "Maple Valley"="Moderate Income", "Milton"="Moderate Income", "Newcastle"="Moderate Income", "Normandy Park"="Moderate Income", "North Bend"="Moderate Income","Pacific"="Moderate Income", "Preston"="Moderate Income", "Ravensdale"="Moderate Income", "Renton"="Moderate Income", "SeaTac"="Moderate Income", "Seattle"="Moderate Income", "Shoreline"="Moderate Income", "Skykomish"="Moderate Income", "Snoqualmie"="Moderate Income", "Snoqualmie Pass"="Moderate Income", "Tukwila"="Moderate Income", "Vashon"="Moderate Income", "Woodinville"="Moderate Income", "Yarrow Point"="Moderate Income"))
+realestate$city
+count(realestate$city)
+barplot(table(realestate$city))
+
+# Between "statezip" and "city", "statezip" is more specific about location so we will use in regression
+
+# Select only variables correlated with price to new dataframe
+
+keeps <- c("price", "bedrooms", "bathrooms", "sqft_living", "floors", "view", "waterfront", "sqft_basement", "statezip")
+realestate = realestate[keeps]
+
+# Export to CSV
+
+write.csv(realestate,"C:/Users/griff/Desktop/Analytics Projects/HousePrice_Project\\cleaned_data.csv", row.names = FALSE)
